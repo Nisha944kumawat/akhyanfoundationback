@@ -1,20 +1,31 @@
 const AuditDocument = require("../models/AuditDocument");
 const cloudinary = require("../config/cloudinary");
 
-const streamUpload = (fileBuffer) => {
+function cleanFileName(name) {
+  return name
+    .replace(/\.[^/.]+$/, "")
+    .replace(/\s+/g, "-")
+    .replace(/[^a-zA-Z0-9-_]/g, "")
+    .toLowerCase();
+}
+
+const uploadPdfToCloudinary = (file) => {
   return new Promise((resolve, reject) => {
+    const publicId = `${Date.now()}-${cleanFileName(file.originalname)}.pdf`;
+
     const stream = cloudinary.uploader.upload_stream(
       {
         folder: "aakhyaan-foundation/audit-documents",
         resource_type: "raw",
+        public_id: publicId,
       },
       (error, result) => {
-        if (result) resolve(result);
-        else reject(error);
+        if (error) reject(error);
+        else resolve(result);
       }
     );
 
-    stream.end(fileBuffer);
+    stream.end(file.buffer);
   });
 };
 
@@ -38,7 +49,7 @@ exports.uploadAuditDocument = async (req, res) => {
       });
     }
 
-    const uploadedPdf = await streamUpload(req.file.buffer);
+    const uploadedPdf = await uploadPdfToCloudinary(req.file);
 
     const document = await AuditDocument.create({
       name: req.file.originalname,
@@ -52,6 +63,7 @@ exports.uploadAuditDocument = async (req, res) => {
     });
   } catch (error) {
     console.log("UPLOAD AUDIT DOCUMENT ERROR:", error);
+
     res.status(500).json({
       message: "Audit document upload failed",
       error: error.message,
@@ -82,6 +94,7 @@ exports.deleteAuditDocument = async (req, res) => {
     });
   } catch (error) {
     console.log("DELETE AUDIT DOCUMENT ERROR:", error);
+
     res.status(500).json({
       message: "Audit document delete failed",
       error: error.message,

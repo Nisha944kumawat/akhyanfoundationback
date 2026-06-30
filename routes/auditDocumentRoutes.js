@@ -1,8 +1,5 @@
 const express = require("express");
-const router = express.Router();
 const multer = require("multer");
-const path = require("path");
-const fs = require("fs");
 
 const {
   getAuditDocuments,
@@ -10,21 +7,11 @@ const {
   deleteAuditDocument,
 } = require("../controllers/auditDocumentController");
 
-const uploadPath = path.join(__dirname, "../uploads/audit-documents");
+const { protectAdmin } = require("../middlewares/adminAuthMiddleware");
 
-if (!fs.existsSync(uploadPath)) {
-  fs.mkdirSync(uploadPath, { recursive: true });
-}
+const router = express.Router();
 
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadPath);
-  },
-  filename: function (req, file, cb) {
-    const safeName = file.originalname.replace(/\s+/g, "-");
-    cb(null, Date.now() + "-" + safeName);
-  },
-});
+const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
   if (file.mimetype === "application/pdf") {
@@ -37,10 +24,13 @@ const fileFilter = (req, file, cb) => {
 const upload = multer({
   storage,
   fileFilter,
+  limits: {
+    fileSize: 10 * 1024 * 1024,
+  },
 });
 
 router.get("/", getAuditDocuments);
-router.post("/", upload.single("document"), uploadAuditDocument);
-router.delete("/:id", deleteAuditDocument);
+router.post("/", protectAdmin, upload.single("document"), uploadAuditDocument);
+router.delete("/:id", protectAdmin, deleteAuditDocument);
 
 module.exports = router;
