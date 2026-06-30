@@ -1,8 +1,5 @@
 const express = require("express");
-const router = express.Router();
 const multer = require("multer");
-const path = require("path");
-const fs = require("fs");
 
 const {
   getDonors,
@@ -10,21 +7,11 @@ const {
   deleteDonor,
 } = require("../controllers/donorController");
 
-const uploadPath = path.join(__dirname, "../uploads/donors");
+const { protectAdmin } = require("../middlewares/adminAuthMiddleware");
 
-if (!fs.existsSync(uploadPath)) {
-  fs.mkdirSync(uploadPath, { recursive: true });
-}
+const router = express.Router();
 
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadPath);
-  },
-  filename: function (req, file, cb) {
-    const safeName = file.originalname.replace(/\s+/g, "-");
-    cb(null, Date.now() + "-" + safeName);
-  },
-});
+const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
   const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
@@ -39,10 +26,13 @@ const fileFilter = (req, file, cb) => {
 const upload = multer({
   storage,
   fileFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+  },
 });
 
 router.get("/", getDonors);
-router.post("/", upload.single("photo"), addDonor);
-router.delete("/:id", deleteDonor);
+router.post("/", protectAdmin, upload.single("photo"), addDonor);
+router.delete("/:id", protectAdmin, deleteDonor);
 
 module.exports = router;
