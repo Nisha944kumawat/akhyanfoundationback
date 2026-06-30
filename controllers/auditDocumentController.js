@@ -1,31 +1,20 @@
 const AuditDocument = require("../models/AuditDocument");
 const cloudinary = require("../config/cloudinary");
 
-function cleanFileName(name) {
-  return name
-    .replace(/\.[^/.]+$/, "")
-    .replace(/\s+/g, "-")
-    .replace(/[^a-zA-Z0-9-_]/g, "")
-    .toLowerCase();
-}
-
-const uploadPdfToCloudinary = (file) => {
+const streamUpload = (fileBuffer) => {
   return new Promise((resolve, reject) => {
-    const publicId = `${Date.now()}-${cleanFileName(file.originalname)}.pdf`;
-
     const stream = cloudinary.uploader.upload_stream(
       {
         folder: "aakhyaan-foundation/audit-documents",
         resource_type: "raw",
-        public_id: publicId,
       },
       (error, result) => {
-        if (error) reject(error);
-        else resolve(result);
+        if (result) resolve(result);
+        else reject(error);
       }
     );
 
-    stream.end(file.buffer);
+    stream.end(fileBuffer);
   });
 };
 
@@ -44,12 +33,10 @@ exports.getAuditDocuments = async (req, res) => {
 exports.uploadAuditDocument = async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({
-        message: "PDF file is required",
-      });
+      return res.status(400).json({ message: "PDF file is required" });
     }
 
-    const uploadedPdf = await uploadPdfToCloudinary(req.file);
+    const uploadedPdf = await streamUpload(req.file.buffer);
 
     const document = await AuditDocument.create({
       name: req.file.originalname,
@@ -76,9 +63,7 @@ exports.deleteAuditDocument = async (req, res) => {
     const document = await AuditDocument.findById(req.params.id);
 
     if (!document) {
-      return res.status(404).json({
-        message: "Audit document not found",
-      });
+      return res.status(404).json({ message: "Audit document not found" });
     }
 
     if (document.public_id) {
