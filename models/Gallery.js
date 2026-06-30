@@ -8,7 +8,7 @@ const gallerySchema = new mongoose.Schema(
     },
     public_id: {
       type: String,
-      required: true,
+      required: false,
     },
   },
   { timestamps: true }
