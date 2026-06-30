@@ -1,8 +1,22 @@
 const AuditDocument = require("../models/AuditDocument");
-const fs = require("fs");
-const path = require("path");
+const cloudinary = require("../config/cloudinary");
 
-const BASE_URL = process.env.BASE_URL || "http://localhost:5000";
+const streamUpload = (fileBuffer) => {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder: "aakhyaan-foundation/audit-documents",
+        resource_type: "raw",
+      },
+      (error, result) => {
+        if (result) resolve(result);
+        else reject(error);
+      }
+    );
+
+    stream.end(fileBuffer);
+  });
+};
 
 exports.getAuditDocuments = async (req, res) => {
   try {
@@ -24,9 +38,12 @@ exports.uploadAuditDocument = async (req, res) => {
       });
     }
 
+    const uploadedPdf = await streamUpload(req.file.buffer);
+
     const document = await AuditDocument.create({
       name: req.file.originalname,
-      file: `${BASE_URL}/uploads/audit-documents/${req.file.filename}`,
+      file: uploadedPdf.secure_url,
+      public_id: uploadedPdf.public_id,
     });
 
     res.status(201).json({
@@ -34,6 +51,7 @@ exports.uploadAuditDocument = async (req, res) => {
       document,
     });
   } catch (error) {
+    console.log("UPLOAD AUDIT DOCUMENT ERROR:", error);
     res.status(500).json({
       message: "Audit document upload failed",
       error: error.message,
@@ -51,19 +69,19 @@ exports.deleteAuditDocument = async (req, res) => {
       });
     }
 
-    const fileName = document.file.split("/").pop();
-    const filePath = path.join(__dirname, "../uploads/audit-documents", fileName);
-
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
+    if (document.public_id) {
+      await cloudinary.uploader.destroy(document.public_id, {
+        resource_type: "raw",
+      });
     }
 
-    await AuditDocument.findByIdAndDelete(req.params.id);
+    await document.deleteOne();
 
     res.status(200).json({
       message: "Audit document deleted successfully",
     });
   } catch (error) {
+    console.log("DELETE AUDIT DOCUMENT ERROR:", error);
     res.status(500).json({
       message: "Audit document delete failed",
       error: error.message,

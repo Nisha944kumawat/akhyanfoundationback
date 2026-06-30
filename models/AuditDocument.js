@@ -1,18 +1,33 @@
-const mongoose = require("mongoose");
+const express = require("express");
+const multer = require("multer");
 
-const auditDocumentSchema = new mongoose.Schema(
-  {
-    name: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    file: {
-      type: String,
-      required: true,
-    },
-  },
-  { timestamps: true }
-);
+const {
+  getAuditDocuments,
+  uploadAuditDocument,
+  deleteAuditDocument,
+} = require("../controllers/auditDocumentController");
 
-module.exports = mongoose.model("AuditDocument", auditDocumentSchema);
+const { protectAdmin } = require("../middlewares/adminAuthMiddleware");
+
+const router = express.Router();
+
+const storage = multer.memoryStorage();
+
+const fileFilter = (req, file, cb) => {
+  if (file.mimetype === "application/pdf") {
+    cb(null, true);
+  } else {
+    cb(new Error("Only PDF files are allowed"));
+  }
+};
+
+const upload = multer({
+  storage,
+  fileFilter,
+});
+
+router.get("/", getAuditDocuments);
+router.post("/", protectAdmin, upload.single("document"), uploadAuditDocument);
+router.delete("/:id", protectAdmin, deleteAuditDocument);
+
+module.exports = router;
