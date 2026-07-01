@@ -10,16 +10,32 @@ connectDB();
 const app = express();
 
 const allowedOrigins = [
+  // Local
   "http://127.0.0.1:5500",
   "http://localhost:5500",
+  "http://127.0.0.1:5501",
+  "http://localhost:5501",
+
+  // Live
   "https://aakyanfoundationbackfrontend.vercel.app",
-  "https://aakhyaanfoundation.vercel.app"
+  "https://aakhyaanfoundation.vercel.app",
 ];
 
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: function (origin, callback) {
+      // Postman / server-to-server requests
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("CORS Not Allowed"));
+    },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
@@ -47,5 +63,5 @@ app.get("/", (req, res) => {
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`✅ Server running on port ${PORT}`);
 });
